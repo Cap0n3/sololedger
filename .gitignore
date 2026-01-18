@@ -1,0 +1,7 @@
+plan.md
+CLAUDE.md
+
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc

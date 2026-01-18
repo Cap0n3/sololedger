@@ -1,0 +1,28 @@
+[project]
+name = "sololedger"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "cap0n3",email = "cap0n3@protonmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "textual (>=7.3.0,<8.0.0)"
+]
+
+[project.scripts]
+sololedger = "sololedger.app:main"
+
+[tool.poetry]
+packages = [{include = "sololedger"}]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.2"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
