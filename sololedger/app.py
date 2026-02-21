@@ -86,6 +86,12 @@ class SoloLedgerApp(App):
         height: 1fr;
     }
 
+    #report-table {
+        height: auto;
+        min-height: 10;
+        max-height: 20;
+    }
+
     .report-summary {
         height: auto;
         padding: 1;
