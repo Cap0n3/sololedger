@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sololedger.domain.activity import Activity
+from sololedger.domain.client import Client
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ class FinancialEntry(ABC):
     amount: Decimal
     activity: Activity
     description: str | None = None
+    client: Client | None = None
 
     def __post_init__(self):
         if self.amount <= 0:
@@ -39,6 +41,7 @@ class IncomeEntry(FinancialEntry):
         amount: Decimal,
         activity: Activity,
         description: str | None = None,
+        client: Client | None = None,
     ) -> "IncomeEntry":
         """Factory method to create an IncomeEntry with a generated UUID."""
         return cls(
@@ -47,6 +50,7 @@ class IncomeEntry(FinancialEntry):
             amount=amount,
             activity=activity,
             description=description,
+            client=client,
         )
 
 
@@ -63,6 +67,7 @@ class ExpenseEntry(FinancialEntry):
         amount: Decimal,
         activity: Activity,
         description: str | None = None,
+        client: Client | None = None,
     ) -> "ExpenseEntry":
         """Factory method to create an ExpenseEntry with a generated UUID."""
         return cls(
@@ -71,4 +76,5 @@ class ExpenseEntry(FinancialEntry):
             amount=amount,
             activity=activity,
             description=description,
+            client=client,
         )

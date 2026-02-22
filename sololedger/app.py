@@ -20,6 +20,7 @@ from textual.widgets import (
 
 from sololedger import (
     Activity,
+    Client,
     ExpenseEntry,
     IncomeEntry,
     Ledger,
@@ -86,6 +87,16 @@ class SoloLedgerApp(App):
         height: 1fr;
     }
 
+    #clients-table {
+        height: auto;
+        min-height: 10;
+    }
+
+    #activities-table {
+        height: auto;
+        min-height: 10;
+    }
+
     #report-table {
         height: auto;
         min-height: 10;
@@ -133,41 +144,71 @@ class SoloLedgerApp(App):
                     yield from self._compose_add_entry_form()
                 with TabPane("Activities", id="activities-tab"):
                     yield from self._compose_activities_tab()
+                with TabPane("Clients", id="clients-tab"):
+                    yield from self._compose_clients_tab()
                 with TabPane("Report", id="report-tab"):
                     yield from self._compose_report_tab()
         yield Footer()
 
     def _compose_add_entry_form(self) -> ComposeResult:
-        with Vertical(classes="form-container"):
-            yield Label("Add New Entry", classes="form-title")
-            with Horizontal(classes="form-row"):
-                yield Label("Type:")
-                yield Select(
-                    [("Income", "income"), ("Expense", "expense")],
-                    id="entry-type",
-                    value="income",
-                )
-            with Horizontal(classes="form-row"):
-                yield Label("Amount:")
-                yield Input(placeholder="0.00", id="entry-amount")
-            with Horizontal(classes="form-row"):
-                yield Label("Activity:")
-                yield Select([], id="entry-activity")
-            with Horizontal(classes="form-row"):
-                yield Label("Description:")
-                yield Input(placeholder="Optional", id="entry-description")
-            yield Button("Add Entry", id="add-entry-btn", variant="primary")
-            yield Static("", id="entry-message", classes="message")
+        with ScrollableContainer(id="add-entry-scroll"):
+            with Vertical(classes="form-container"):
+                yield Label("Add New Entry", classes="form-title")
+                with Horizontal(classes="form-row"):
+                    yield Label("Type:")
+                    yield Select(
+                        [("Income", "income"), ("Expense", "expense")],
+                        id="entry-type",
+                        value="income",
+                    )
+                with Horizontal(classes="form-row"):
+                    yield Label("Amount:")
+                    yield Input(placeholder="0.00", id="entry-amount")
+                with Horizontal(classes="form-row"):
+                    yield Label("Activity:")
+                    yield Select([], id="entry-activity")
+                with Horizontal(classes="form-row"):
+                    yield Label("Client:")
+                    yield Select([], id="entry-client", allow_blank=True)
+                with Horizontal(classes="form-row"):
+                    yield Label("Description:")
+                    yield Input(placeholder="Optional", id="entry-description")
+                yield Button("Add Entry", id="add-entry-btn", variant="primary")
+                yield Static("", id="entry-message", classes="message")
 
     def _compose_activities_tab(self) -> ComposeResult:
-        with Vertical(classes="form-container"):
-            yield Label("Add New Activity")
-            with Horizontal(classes="form-row"):
-                yield Label("Name:")
-                yield Input(placeholder="Activity name", id="activity-name")
-            yield Button("Add Activity", id="add-activity-btn", variant="primary")
-            yield Static("", id="activity-message", classes="message")
-        yield DataTable(id="activities-table")
+        with ScrollableContainer():
+            with Vertical(classes="form-container"):
+                yield Label("Add New Activity")
+                with Horizontal(classes="form-row"):
+                    yield Label("Name:")
+                    yield Input(placeholder="Activity name", id="activity-name")
+                yield Button("Add Activity", id="add-activity-btn", variant="primary")
+                yield Static("", id="activity-message", classes="message")
+            yield DataTable(id="activities-table")
+
+    def _compose_clients_tab(self) -> ComposeResult:
+        with ScrollableContainer():
+            with Vertical(classes="form-container"):
+                yield Label("Add New Client")
+                with Horizontal(classes="form-row"):
+                    yield Label("First Name:")
+                    yield Input(placeholder="First name", id="client-first-name")
+                with Horizontal(classes="form-row"):
+                    yield Label("Last Name:")
+                    yield Input(placeholder="Last name", id="client-last-name")
+                with Horizontal(classes="form-row"):
+                    yield Label("Email:")
+                    yield Input(placeholder="Email", id="client-email")
+                with Horizontal(classes="form-row"):
+                    yield Label("Phone:")
+                    yield Input(placeholder="Optional", id="client-phone")
+                with Horizontal(classes="form-row"):
+                    yield Label("Description:")
+                    yield Input(placeholder="Optional", id="client-description")
+                yield Button("Add Client", id="add-client-btn", variant="primary")
+                yield Static("", id="client-message", classes="message")
+            yield DataTable(id="clients-table")
 
     def _compose_report_tab(self) -> ComposeResult:
         current_year = date.today().year
@@ -204,16 +245,21 @@ class SoloLedgerApp(App):
     def on_mount(self) -> None:
         self._setup_entries_table()
         self._setup_activities_table()
+        self._setup_clients_table()
         self._setup_report_table()
         self._refresh_data()
 
     def _setup_entries_table(self) -> None:
         table = self.query_one("#entries-table", DataTable)
-        table.add_columns("Date", "Type", "Amount", "Activity", "Description")
+        table.add_columns("Date", "Type", "Amount", "Activity", "Client", "Description")
 
     def _setup_activities_table(self) -> None:
         table = self.query_one("#activities-table", DataTable)
         table.add_columns("Name")
+
+    def _setup_clients_table(self) -> None:
+        table = self.query_one("#clients-table", DataTable)
+        table.add_columns("Name", "Email", "Phone", "Description")
 
     def _setup_report_table(self) -> None:
         table = self.query_one("#report-table", DataTable)
@@ -222,18 +268,22 @@ class SoloLedgerApp(App):
     def _refresh_data(self) -> None:
         self._refresh_entries_table()
         self._refresh_activities_table()
+        self._refresh_clients_table()
         self._refresh_activity_select()
+        self._refresh_client_select()
 
     def _refresh_entries_table(self) -> None:
         table = self.query_one("#entries-table", DataTable)
         table.clear()
         for entry in self.ledger.get_entries():
             entry_type = "Income" if isinstance(entry, IncomeEntry) else "Expense"
+            client_name = entry.client.full_name if entry.client else ""
             table.add_row(
                 str(entry.date),
                 entry_type,
                 f"{entry.amount:.2f}",
                 entry.activity.name,
+                client_name,
                 entry.description or "",
             )
 
@@ -251,13 +301,33 @@ class SoloLedgerApp(App):
         if options:
             select.value = options[0][1]
 
+    def _refresh_clients_table(self) -> None:
+        table = self.query_one("#clients-table", DataTable)
+        table.clear()
+        for client in self.repository.get_all_clients():
+            table.add_row(
+                client.full_name,
+                client.email,
+                client.phone or "",
+                client.description or "",
+            )
+
+    def _refresh_client_select(self) -> None:
+        select = self.query_one("#entry-client", Select)
+        clients = self.repository.get_all_clients()
+        options = [(c.full_name, str(c.id)) for c in clients]
+        select.set_options(options)
+
     @on(Button.Pressed, "#add-entry-btn")
     def add_entry(self) -> None:
+        from uuid import UUID as UUIDType
+
         message = self.query_one("#entry-message", Static)
 
         entry_type = self.query_one("#entry-type", Select).value
         amount_str = self.query_one("#entry-amount", Input).value
         activity_id = self.query_one("#entry-activity", Select).value
+        client_id = self.query_one("#entry-client", Select).value
         description = self.query_one("#entry-description", Input).value or None
 
         if not amount_str:
@@ -282,13 +352,15 @@ class SoloLedgerApp(App):
             message.set_classes("message error")
             return
 
-        activity = self.repository.get_activity(
-            __import__("uuid").UUID(str(activity_id))
-        )
+        activity = self.repository.get_activity(UUIDType(str(activity_id)))
         if not activity:
             message.update("Activity not found")
             message.set_classes("message error")
             return
+
+        client = None
+        if client_id is not None and client_id != Select.BLANK:
+            client = self.repository.get_client(UUIDType(str(client_id)))
 
         if entry_type == "income":
             entry = IncomeEntry.create(
@@ -296,6 +368,7 @@ class SoloLedgerApp(App):
                 amount=amount,
                 activity=activity,
                 description=description,
+                client=client,
             )
         else:
             entry = ExpenseEntry.create(
@@ -303,6 +376,7 @@ class SoloLedgerApp(App):
                 amount=amount,
                 activity=activity,
                 description=description,
+                client=client,
             )
 
         self.ledger.add_entry(entry)
@@ -332,6 +406,43 @@ class SoloLedgerApp(App):
         message.set_classes("message success")
         self._refresh_activities_table()
         self._refresh_activity_select()
+
+    @on(Button.Pressed, "#add-client-btn")
+    def add_client(self) -> None:
+        message = self.query_one("#client-message", Static)
+        first_name = self.query_one("#client-first-name", Input).value.strip()
+        last_name = self.query_one("#client-last-name", Input).value.strip()
+        email = self.query_one("#client-email", Input).value.strip()
+        phone = self.query_one("#client-phone", Input).value.strip() or None
+        description = self.query_one("#client-description", Input).value.strip() or None
+
+        if not first_name:
+            message.update("Please enter a first name")
+            message.set_classes("message error")
+            return
+
+        if not last_name:
+            message.update("Please enter a last name")
+            message.set_classes("message error")
+            return
+
+        if not email:
+            message.update("Please enter an email")
+            message.set_classes("message error")
+            return
+
+        client = Client.create(first_name, last_name, email, phone, description)
+        self.repository.save_client(client)
+
+        self.query_one("#client-first-name", Input).value = ""
+        self.query_one("#client-last-name", Input).value = ""
+        self.query_one("#client-email", Input).value = ""
+        self.query_one("#client-phone", Input).value = ""
+        self.query_one("#client-description", Input).value = ""
+        message.update(f"Client '{first_name} {last_name}' added!")
+        message.set_classes("message success")
+        self._refresh_clients_table()
+        self._refresh_client_select()
 
     @on(Button.Pressed, "#generate-report-btn")
     def generate_report(self) -> None:

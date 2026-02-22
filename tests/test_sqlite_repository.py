@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from sololedger import Activity, ExpenseEntry, IncomeEntry, Ledger, SQLiteLedgerRepository
+from sololedger import Activity, Client, ExpenseEntry, IncomeEntry, Ledger, SQLiteLedgerRepository
 
 
 @pytest.fixture
@@ -31,6 +31,26 @@ def developer():
 @pytest.fixture
 def guitar_teacher():
     return Activity.create(name="Guitar Teacher")
+
+
+@pytest.fixture
+def acme_client():
+    return Client.create(
+        first_name="John",
+        last_name="Doe",
+        email="john@acme.com",
+        phone="+1234567890",
+        description="Important client",
+    )
+
+
+@pytest.fixture
+def globex_client():
+    return Client.create(
+        first_name="Jane",
+        last_name="Smith",
+        email="jane@globex.com",
+    )
 
 
 class TestActivityPersistence:
@@ -71,6 +91,59 @@ class TestActivityPersistence:
         activities = repository.get_all_activities()
 
         assert len(activities) == 1
+
+
+class TestClientPersistence:
+    def test_save_and_get_client(self, repository, acme_client):
+        repository.save_client(acme_client)
+
+        loaded = repository.get_client(acme_client.id)
+
+        assert loaded is not None
+        assert loaded.id == acme_client.id
+        assert loaded.first_name == acme_client.first_name
+        assert loaded.last_name == acme_client.last_name
+        assert loaded.email == acme_client.email
+        assert loaded.phone == acme_client.phone
+        assert loaded.description == acme_client.description
+
+    def test_save_client_without_optional_fields(self, repository, globex_client):
+        repository.save_client(globex_client)
+
+        loaded = repository.get_client(globex_client.id)
+
+        assert loaded is not None
+        assert loaded.phone is None
+        assert loaded.description is None
+
+    def test_get_nonexistent_client_returns_none(self, repository, acme_client):
+        result = repository.get_client(acme_client.id)
+
+        assert result is None
+
+    def test_get_all_clients_empty(self, repository):
+        clients = repository.get_all_clients()
+
+        assert clients == []
+
+    def test_get_all_clients(self, repository, acme_client, globex_client):
+        repository.save_client(acme_client)
+        repository.save_client(globex_client)
+
+        clients = repository.get_all_clients()
+
+        assert len(clients) == 2
+        client_ids = {c.id for c in clients}
+        assert acme_client.id in client_ids
+        assert globex_client.id in client_ids
+
+    def test_save_client_is_idempotent(self, repository, acme_client):
+        repository.save_client(acme_client)
+        repository.save_client(acme_client)
+
+        clients = repository.get_all_clients()
+
+        assert len(clients) == 1
 
 
 class TestEntryPersistence:
@@ -141,6 +214,68 @@ class TestEntryPersistence:
         loaded_entries = repository.get_all_entries()
 
         assert loaded_entries[0].amount == precise_amount
+
+    def test_save_entry_with_client(self, repository, developer, acme_client):
+        repository.save_activity(developer)
+        repository.save_client(acme_client)
+        entry = IncomeEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("1000.00"),
+            activity=developer,
+            client=acme_client,
+        )
+
+        repository.save_entry(entry)
+        loaded_entries = repository.get_all_entries()
+
+        assert len(loaded_entries) == 1
+        loaded = loaded_entries[0]
+        assert loaded.client is not None
+        assert loaded.client.id == acme_client.id
+        assert loaded.client.first_name == acme_client.first_name
+        assert loaded.client.last_name == acme_client.last_name
+        assert loaded.client.email == acme_client.email
+        assert loaded.client.phone == acme_client.phone
+        assert loaded.client.description == acme_client.description
+
+    def test_save_entry_without_client(self, repository, developer):
+        repository.save_activity(developer)
+        entry = IncomeEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("1000.00"),
+            activity=developer,
+        )
+
+        repository.save_entry(entry)
+        loaded_entries = repository.get_all_entries()
+
+        assert len(loaded_entries) == 1
+        assert loaded_entries[0].client is None
+
+    def test_entries_with_and_without_clients(self, repository, developer, acme_client):
+        repository.save_activity(developer)
+        repository.save_client(acme_client)
+        entry_with_client = IncomeEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("1000.00"),
+            activity=developer,
+            client=acme_client,
+        )
+        entry_without_client = ExpenseEntry.create(
+            date=date(2024, 3, 16),
+            amount=Decimal("50.00"),
+            activity=developer,
+        )
+
+        repository.save_entry(entry_with_client)
+        repository.save_entry(entry_without_client)
+        loaded_entries = repository.get_all_entries()
+
+        assert len(loaded_entries) == 2
+        entries_with_client = [e for e in loaded_entries if e.client is not None]
+        entries_without_client = [e for e in loaded_entries if e.client is None]
+        assert len(entries_with_client) == 1
+        assert len(entries_without_client) == 1
 
 
 class TestLedgerPersistence:
@@ -279,3 +414,59 @@ class TestRepositoryWithPathTypes:
         repo.close()
 
         assert True
+
+
+class TestBackwardCompatibility:
+    def test_existing_entries_load_with_null_client(self, db_path, developer):
+        import sqlite3
+        from uuid import uuid4
+
+        entry_id = uuid4()
+
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE activities (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE entries (
+                id TEXT PRIMARY KEY,
+                entry_type TEXT NOT NULL,
+                date TEXT NOT NULL,
+                amount TEXT NOT NULL,
+                activity_id TEXT NOT NULL,
+                description TEXT,
+                FOREIGN KEY (activity_id) REFERENCES activities(id)
+            )
+        """)
+        cursor.execute(
+            "INSERT INTO activities (id, name) VALUES (?, ?)",
+            (str(developer.id), developer.name),
+        )
+        cursor.execute(
+            """
+            INSERT INTO entries (id, entry_type, date, amount, activity_id, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(entry_id),
+                "income",
+                "2024-03-15",
+                "1000.00",
+                str(developer.id),
+                "Test description",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        repo = SQLiteLedgerRepository(db_path)
+        entries = repo.get_all_entries()
+        repo.close()
+
+        assert len(entries) == 1
+        assert entries[0].client is None
+        assert entries[0].description == "Test description"

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from sololedger.domain.activity import Activity
+from sololedger.domain.client import Client
 from sololedger.domain.financial_entry import FinancialEntry
 from sololedger.domain.ledger import Ledger
 
@@ -22,6 +23,21 @@ class LedgerRepository(ABC):
     @abstractmethod
     def get_all_activities(self) -> list[Activity]:
         """Retrieve all persisted activities."""
+        pass
+
+    @abstractmethod
+    def save_client(self, client: Client) -> None:
+        """Persist a client."""
+        pass
+
+    @abstractmethod
+    def get_client(self, id: UUID) -> Client | None:
+        """Retrieve a client by ID. Returns None if not found."""
+        pass
+
+    @abstractmethod
+    def get_all_clients(self) -> list[Client]:
+        """Retrieve all persisted clients."""
         pass
 
     @abstractmethod

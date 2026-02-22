@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from sololedger import Activity, ExpenseEntry, FinancialEntry, IncomeEntry
+from sololedger import Activity, Client, ExpenseEntry, FinancialEntry, IncomeEntry
 
 
 @pytest.fixture
@@ -15,6 +15,15 @@ def developer_activity():
 @pytest.fixture
 def guitar_teacher_activity():
     return Activity.create(name="Guitar Teacher")
+
+
+@pytest.fixture
+def acme_client():
+    return Client.create(
+        first_name="John",
+        last_name="Doe",
+        email="john@acme.com",
+    )
 
 
 class TestIncomeEntry:
@@ -195,3 +204,58 @@ class TestFinancialEntryEquality:
         )
 
         assert income != expense
+
+
+class TestFinancialEntryWithClient:
+    def test_income_entry_without_client(self, developer_activity):
+        entry = IncomeEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("1000.00"),
+            activity=developer_activity,
+        )
+
+        assert entry.client is None
+
+    def test_income_entry_with_client(self, developer_activity, acme_client):
+        entry = IncomeEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("1000.00"),
+            activity=developer_activity,
+            client=acme_client,
+        )
+
+        assert entry.client == acme_client
+        assert entry.client.full_name == "John Doe"
+
+    def test_expense_entry_without_client(self, developer_activity):
+        entry = ExpenseEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("50.00"),
+            activity=developer_activity,
+        )
+
+        assert entry.client is None
+
+    def test_expense_entry_with_client(self, developer_activity, acme_client):
+        entry = ExpenseEntry.create(
+            date=date(2024, 3, 15),
+            amount=Decimal("50.00"),
+            activity=developer_activity,
+            client=acme_client,
+        )
+
+        assert entry.client == acme_client
+
+    def test_entry_with_explicit_client(self, developer_activity, acme_client):
+        entry_id = uuid4()
+        entry = IncomeEntry(
+            id=entry_id,
+            date=date(2024, 3, 15),
+            amount=Decimal("1000.00"),
+            activity=developer_activity,
+            description="Project payment",
+            client=acme_client,
+        )
+
+        assert entry.client == acme_client
+        assert entry.client.email == "john@acme.com"

@@ -1,5 +1,6 @@
 from sololedger.domain import (
     Activity,
+    Client,
     ExpenseEntry,
     FinancialEntry,
     IncomeEntry,
@@ -14,6 +15,7 @@ from sololedger.reporting import ActivityTotals, Report, ReportCalculator
 __all__ = [
     # Domain
     "Activity",
+    "Client",
     "FinancialEntry",
     "IncomeEntry",
     "ExpenseEntry",
