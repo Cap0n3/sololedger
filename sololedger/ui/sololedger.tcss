@@ -1,0 +1,88 @@
+Screen {
+    layout: vertical;
+}
+
+#main-container {
+    height: 1fr;
+    padding: 1;
+}
+
+EntriesTab, AddEntryTab, ActivitiesTab, ClientsTab, ReportTab {
+    height: 1fr;
+}
+
+.form-row {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.form-row Label {
+    width: 15;
+}
+
+.form-row Input, .form-row Select {
+    width: 1fr;
+}
+
+.form-container {
+    height: auto;
+    padding: 1;
+    border: solid green;
+    margin-bottom: 1;
+}
+
+.message {
+    height: 3;
+    padding: 1;
+}
+
+.success {
+    color: green;
+}
+
+.error {
+    color: red;
+}
+
+Button {
+    margin-top: 1;
+}
+
+DataTable {
+    height: 1fr;
+}
+
+#clients-table {
+    height: auto;
+    min-height: 10;
+}
+
+#activities-table {
+    height: auto;
+    min-height: 10;
+}
+
+#report-table {
+    height: auto;
+    min-height: 10;
+    max-height: 20;
+}
+
+.report-summary {
+    height: auto;
+    padding: 1;
+    border: solid cyan;
+    margin-bottom: 1;
+}
+
+.report-total {
+    text-style: bold;
+}
+
+.income {
+    color: green;
+}
+
+.expense {
+    color: red;
+}

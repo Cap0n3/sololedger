@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sololedger = "sololedger.app:main"
+sololedger = "sololedger.ui.app:main"
 
 [tool.poetry]
 packages = [{include = "sololedger"}]
